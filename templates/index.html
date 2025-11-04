@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Cartoonifier Pro</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    
+    <!-- === FONT IMPORT UPDATED === -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- We now import Poppins AND the new title font, Pacifico -->
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- === END FONT UPDATE === -->
+
+</head>
+<body>
+
+    <!-- The container now holds the logo -->
+    <div class="container">
+
+        <!-- === LOGO MOVED HERE === -->
+        <!-- This path assumes your logo is at 'static/img/logo.png' -->
+        <div class="header-with-logo">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Cartoonifier Pro Logo" class="page-logo">
+            <header>
+                <!-- The emoji is removed so it doesn't clash with the logo -->
+                <h1>Cartoonifier Pro </h1>
+                <p>Transform your photos into stunning cartoons with a single click. Upload an image to get started!</p>
+            </header>
+        </div>
+        <!-- === END OF LOGO MOVE === -->
+
+
+        <main>
+            <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" 
+                             viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                             <polyline points="17 8 12 3 7 8"></polyline>
+                             <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                    </div>
+
+                    <label class="upload-label">Drag & drop an image or <strong>click to select</strong></label>
+                    <p class="upload-subtext">Supports PNG, JPG, JPEG</p>
+                    <input type="file" id="file-input" name="file" accept="image/png, image/jpeg" required>
+                </div>
+
+                <button type="submit" id="submit-btn">
+                    <span class="btn-text">Cartoonify!</span>
+                    <span class="btn-icon">✨</span>
+                </button>
+            </form>
+
+            <div class="results">
+                <div class="image-box" id="original-box" style="display:none;">
+                    <h2>Original</h2>
+                    <div class="img-container">
+                        <img id="image-preview" src="#" alt="">
+                    </div>
+                </div>
+
+                <div class="image-box" id="processed-box" style="display:none;">
+                    <h2>Cartoonified</h2>
+                    <div class="img-container">
+                        <div class="loader" id="loader" style="display:none;"></div>
+                        <img id="cartoon-image" src="#" alt="">
+                    </div>
+
+                    <a id="download-btn" href="#" download="cartoon_image.jpg" class="download-btn" style="display:none;">Download</a>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            Cartoonifier Pro | Powered by Flask & OpenCV
+        </footer>
+    </div>
+
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
+
