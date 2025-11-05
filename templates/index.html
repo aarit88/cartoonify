@@ -1,88 +1,144 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Cartoonifier Pro</title>
-
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    
-    <!-- === FONT IMPORT UPDATED === -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- We now import Poppins AND the new title font, Pacifico -->
-    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- === END FONT UPDATE === -->
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cartoonifier Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
 </head>
 <body>
+  <div class="app">
 
-    <!-- The container now holds the logo -->
-    <div class="container">
-
-        <!-- === LOGO MOVED HERE === -->
-        <!-- This path assumes your logo is at 'static/img/logo.png' -->
-        <div class="header-with-logo">
-            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Cartoonifier Pro Logo" class="page-logo">
-            <header>
-                <!-- The emoji is removed so it doesn't clash with the logo -->
-                <h1>Cartoonifier Pro </h1>
-                <p>Transform your photos into stunning cartoons with a single click. Upload an image to get started!</p>
-            </header>
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.4 5h5.3l-4.3 3.1 1.7 5.2L12 13.9 6.9 15.3l1.7-5.2L4.3 7h5.3L12 2z" fill="currentColor"/></svg>
         </div>
-        <!-- === END OF LOGO MOVE === -->
+        <span>Cartoonifier Pro</span>
+      </div>
 
+      <div class="toolbar">
+        <button id="open-file" class="btn" type="button" title="Open (O)">Open</button>
+        <button id="quick-cartoon" class="btn btn-primary" type="button" title="Run (R)">Cartoonify</button>
+        <div class="divider"></div>
+        <div class="zoom">
+          <button id="zoom-out" class="btn icon" type="button" title="Zoom out (–)">−</button>
+          <span id="zoom-level">100%</span>
+          <button id="zoom-in" class="btn icon" type="button" title="Zoom in (+)">+</button>
+          <button id="zoom-fit" class="btn" type="button" title="Fit (F)">Fit</button>
+        </div>
+        <div class="spacer"></div>
+      </div>
+    </header>
 
-        <main>
-            <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
-                <div class="upload-area" id="upload-area">
-                    <div class="upload-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" 
-                             viewBox="0 0 24 24" fill="none" stroke="currentColor" 
-                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                             <polyline points="17 8 12 3 7 8"></polyline>
-                             <line x1="12" y1="3" x2="12" y2="15"></line>
-                        </svg>
-                    </div>
+    <!-- Main grid -->
+    <div class="shell">
+      <!-- Left rail: only dropzone now -->
+      <aside class="rail">
+        <div class="rail-foot">
+          <!-- use <label> so native click opens picker once; no JS click() on it -->
+          <label class="drop" id="upload-area" tabindex="0" aria-label="Upload image">
+            <input id="file-input" type="file" name="file" accept="image/png,image/jpeg,image/webp" />
+            <span class="drop-icon">⬆</span>
+            <span class="drop-text"><strong>Drop</strong> or <u>browse</u></span>
+            <span class="muted">JPG, PNG, WEBP • 20MB</span>
+          </label>
+        </div>
+      </aside>
 
-                    <label class="upload-label">Drag & drop an image or <strong>click to select</strong></label>
-                    <p class="upload-subtext">Supports PNG, JPG, JPEG</p>
-                    <input type="file" id="file-input" name="file" accept="image/png, image/jpeg" required>
-                </div>
-
-                <button type="submit" id="submit-btn">
-                    <span class="btn-text">Cartoonify!</span>
-                    <span class="btn-icon">✨</span>
-                </button>
-            </form>
-
-            <div class="results">
-                <div class="image-box" id="original-box" style="display:none;">
-                    <h2>Original</h2>
-                    <div class="img-container">
-                        <img id="image-preview" src="#" alt="">
-                    </div>
-                </div>
-
-                <div class="image-box" id="processed-box" style="display:none;">
-                    <h2>Cartoonified</h2>
-                    <div class="img-container">
-                        <div class="loader" id="loader" style="display:none;"></div>
-                        <img id="cartoon-image" src="#" alt="">
-                    </div>
-
-                    <a id="download-btn" href="#" download="cartoon_image.jpg" class="download-btn" style="display:none;">Download</a>
-                </div>
+      <!-- Canvas center -->
+      <main class="canvas">
+        <div class="stage" id="stage">
+          <div class="stage-inner" id="stage-inner">
+            <img id="img-before" class="img-layer" alt="Original"/>
+            <img id="img-after" class="img-layer" alt="Cartoon"/>
+            <div id="ba-handle" class="ba-handle" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" tabindex="0">
+              <span class="grip"></span>
             </div>
-        </main>
+          </div>
+          <div id="empty-state" class="empty">
+            <div class="empty-illustration"></div>
+            <h3>Drop an image to start</h3>
+            <p>Or click “Open”. Press <kbd>R</kbd> to run after tweaking settings.</p>
+          </div>
+          <div id="loader" class="loader" hidden></div>
+        </div>
 
-        <footer>
-            Cartoonifier Pro | Powered by Flask & OpenCV
-        </footer>
+        <div class="bottom-bar" id="bottom-bar" hidden>
+          <div class="status" id="status">Ready</div>
+          <a id="download-btn" class="btn btn-secondary" href="#" download="cartoonified.png" hidden>Download PNG</a>
+        </div>
+      </main>
+
+      <!-- Right inspector -->
+      <aside class="inspector">
+        <form id="upload-form" method="post" enctype="multipart/form-data">
+          <section class="panel">
+            <h3>Processing</h3>
+            <div class="grid">
+              <label class="field">
+                <span>Smoothing</span>
+                <select id="blur-type" name="blur_type">
+                  <option value="bilateral" selected>Edge-preserving</option>
+                  <option value="median">Median</option>
+                  <option value="gaussian">Gaussian</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Quantizer</span>
+                <select id="quantizer" name="quantizer">
+                  <option value="kmeans" selected>K-Means</option>
+                  <option value="mediancut">Median Cut</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Colors <b id="label-colors">8</b></span>
+                <input type="range" min="4" max="16" value="8" id="num-colors" name="num_colors" />
+              </label>
+
+              <label class="field">
+                <span>Edge thickness <b id="label-edge">0.5</b></span>
+                <input type="range" min="0.1" max="1" step="0.1" value="0.5" id="line-strength" name="line_strength" />
+              </label>
+
+              <label class="field">
+                <span>Target long side</span>
+                <div class="with-suffix">
+                  <input id="target-long-side" name="target_long_side" type="number" min="256" max="2048" value="1024"/>
+                  <span class="suffix">px</span>
+                </div>
+              </label>
+
+              <label class="check">
+                <input type="checkbox" id="upscale-small" name="upscale_small" checked />
+                <span>Smart upscale small images</span>
+              </label>
+            </div>
+
+            <div class="actions">
+              <button type="submit" class="btn btn-primary w-full"><span>Run</span> <kbd>R</kbd></button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Shortcuts</h3>
+            <ul class="keys">
+              <li><kbd>O</kbd> Open</li>
+              <li><kbd>R</kbd> Run</li>
+              <li><kbd>F</kbd> Fit</li>
+              <li><kbd>+</kbd>/<kbd>−</kbd> Zoom</li>
+            </ul>
+          </section>
+        </form>
+      </aside>
     </div>
+  </div>
 
-<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
-

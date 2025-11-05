@@ -1,142 +1,201 @@
-document.addEventListener('DOMContentLoaded', function () {
-    // --- Element Selection ---
-    const fileInput = document.getElementById('file-input');
-    const imagePreview = document.getElementById('image-preview');
-    const originalBox = document.getElementById('original-box');
-    const processedBox = document.getElementById('processed-box');
-    const cartoonImage = document.getElementById('cartoon-image');
-    const uploadForm = document.getElementById('upload-form');
-    const loader = document.getElementById('loader');
-    const downloadBtn = document.getElementById('download-btn');
-    const uploadArea = document.getElementById('upload-area');
-    const uploadLabel = document.querySelector('.upload-label');
-    const uploadSubtext = document.querySelector('.upload-subtext');
-    const submitBtn = document.querySelector("button[type='submit']");
+document.addEventListener('DOMContentLoaded', () => {
+  // DOM
+  const fileInput = document.getElementById('file-input');
+  const uploadArea = document.getElementById('upload-area');
 
-    // Utility animation functions
-    function animateEl(el, animation) {
-        el.style.animation = animation;
-        el.addEventListener("animationend", () => {
-            el.style.animation = "";
-        }, { once: true });
-    }
+  const uploadForm = document.getElementById('upload-form');
+  const blurType = document.getElementById('blur-type');
+  const quantizer = document.getElementById('quantizer');
+  const numColors = document.getElementById('num-colors');
+  const lineStrength = document.getElementById('line-strength');
+  const targetLongSide = document.getElementById('target-long-side');
+  const upscaleSmall = document.getElementById('upscale-small');
 
-    // --- Entire upload box clickable ---
-    uploadArea.addEventListener('click', () => {
-        fileInput.click();
-    });
+  const labelColors = document.getElementById('label-colors');
+  const labelEdge = document.getElementById('label-edge');
 
-    // --- Preview on file select ---
-    fileInput.addEventListener('change', function () {
-        const file = this.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                imagePreview.src = e.target.result;
-                originalBox.style.display = 'block';
-                
-                // Reset processing box
-                processedBox.style.display = 'none';
-                cartoonImage.src = "#";
-                downloadBtn.style.display = 'none';
+  const stage = document.getElementById('stage');
+  const stageInner = document.getElementById('stage-inner');
+  const beforeImg = document.getElementById('img-before');
+  const afterImg = document.getElementById('img-after');
+  const handle = document.getElementById('ba-handle');
+  const empty = document.getElementById('empty-state');
+  const loader = document.getElementById('loader');
 
-                uploadLabel.innerHTML = `Selected file: <strong>${file.name}</strong>`;
-                uploadSubtext.textContent = "Ready to Cartoonify!";
+  const bottomBar = document.getElementById('bottom-bar');
+  const downloadBtn = document.getElementById('download-btn');
+  const status = document.getElementById('status');
 
-                // Animation: pulse when file chosen
-                animateEl(uploadArea, "pulseSelect 0.4s ease");
-                // Fade-in preview
-                animateEl(imagePreview, "fadeInScale 0.5s ease");
-            };
-            reader.readAsDataURL(file);
-        }
-    });
+  const zoomInBtn = document.getElementById('zoom-in');
+  const zoomOutBtn = document.getElementById('zoom-out');
+  const zoomFitBtn = document.getElementById('zoom-fit');
+  const zoomLevelLabel = document.getElementById('zoom-level');
+  const openFileBtn = document.getElementById('open-file');
+  const quickBtn = document.getElementById('quick-cartoon');
 
-    // --- Form Submit / Upload ---
-    uploadForm.addEventListener('submit', function (e) {
-        e.preventDefault();
+  // State
+  let zoom = 1.0;
+  let split = 50;
+  let hasImage = false;
 
-        if (!fileInput.files.length) {
-            alert('Please select an image file first.');
-            return;
-        }
+  // ===== helpers =====
+  const setZoom = (z) => {
+    zoom = Math.max(0.25, Math.min(4, z));
+    stageInner.style.transform = `scale(${zoom})`;
+    zoomLevelLabel.textContent = `${Math.round(zoom * 100)}%`;
+  };
+  const fitToStage = () => {
+    const pad = 32;
+    const rect = stage.getBoundingClientRect();
+    const w = rect.width - pad;
+    const h = rect.height - pad;
+    const baseW = stageInner.clientWidth || 1200;
+    const baseH = stageInner.clientHeight || 800;
+    const factor = Math.max(0.25, Math.min(4, Math.min(w / baseW, h / baseH)));
+    setZoom(factor);
+  };
+  const setSplit = (pct) => {
+    split = Math.max(0, Math.min(100, pct));
+    const right = 100 - split;
+    afterImg.style.clipPath = `inset(0 ${right}% 0 0)`;
+    handle.style.left = `${split}%`;
+    handle.setAttribute('aria-valuenow', String(split));
+  };
+  const setStatus = (msg) => { status.textContent = msg; };
+  const showCanvas = () => {
+    stage.classList.add('has-image');
+    if (empty) empty.hidden = true;
+    bottomBar.hidden = false;
+    beforeImg.style.display = 'block';
+    afterImg.style.display = 'block';
+  };
 
-        processedBox.style.display = 'block';
-        loader.style.display = 'block';
-        cartoonImage.style.display = 'none';
-        downloadBtn.style.display = 'none';
+  // labels
+  const fmt = (val, step) => (String(step).includes('.') ? Number(val).toFixed(1) : String(val));
+  const refreshLabels = () => {
+    labelColors.textContent = fmt(numColors.value, numColors.step || 1);
+    labelEdge.textContent   = fmt(lineStrength.value, lineStrength.step || 1);
+  };
 
-        // Button animation loading
-        submitBtn.disabled = true;
-        submitBtn.classList.add("btn-loading");
-        submitBtn.innerHTML = `<span class="spinner"></span> Processing...`;
+  // ===== init =====
+  refreshLabels();
+  setSplit(50);
+  setZoom(1);
 
-        const formData = new FormData(this);
+  // ===== dropzone =====
+  // Label auto-opens the file input on click. Do NOT call fileInput.click() here.
+  // Drag & drop visuals
+  ['dragenter','dragover'].forEach(ev =>
+    uploadArea.addEventListener(ev, e => { e.preventDefault(); uploadArea.style.boxShadow = 'var(--ring)'; })
+  );
+  ['dragleave','drop'].forEach(ev =>
+    uploadArea.addEventListener(ev, e => { e.preventDefault(); uploadArea.style.boxShadow = ''; })
+  );
+  uploadArea.addEventListener('drop', e => {
+    const f = e.dataTransfer.files?.[0];
+    if (f) { fileInput.files = e.dataTransfer.files; loadFile(f); }
+  });
 
-        fetch('/upload', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                alert('Error: ' + data.error);
-                loader.style.display = 'none';
-                submitBtn.disabled = false;
-                submitBtn.classList.remove("btn-loading");
-                submitBtn.innerHTML = `Cartoonify! ✨`;
-            } else {
-                cartoonImage.src = data.cartoon_image_url + '?t=' + Date.now();
-                downloadBtn.href = data.cartoon_image_url;
+  // Topbar buttons
+  openFileBtn.addEventListener('click', () => fileInput.click());
+  quickBtn.addEventListener('click', () => uploadForm.requestSubmit());
 
-                cartoonImage.onload = () => {
-                    loader.style.display = 'none';
-                    cartoonImage.style.display = 'block';
-                    downloadBtn.style.display = 'block';
+  // Zoom + resize
+  zoomInBtn.addEventListener('click', () => setZoom(zoom * 1.1));
+  zoomOutBtn.addEventListener('click', () => setZoom(zoom / 1.1));
+  zoomFitBtn.addEventListener('click', fitToStage);
+  window.addEventListener('resize', () => { if (hasImage) fitToStage(); });
 
-                    // Result animation
-                    animateEl(cartoonImage, "popIn 0.5s ease");
-                    animateEl(downloadBtn, "glowIn 0.6s ease");
+  // Slider labels live update
+  ['input','change','keyup','pointerup'].forEach(ev => {
+    numColors.addEventListener(ev, refreshLabels);
+    lineStrength.addEventListener(ev, refreshLabels);
+  });
 
-                    // Reset button
-                    submitBtn.disabled = false;
-                    submitBtn.classList.remove("btn-loading");
-                    submitBtn.innerHTML = `Done ✅`;
-                    
-                    setTimeout(() => {
-                        submitBtn.innerHTML = `Cartoonify! ✨`;
-                    }, 1200);
-                };
-            }
-        })
-        .catch(err => {
-            alert('Unexpected error. Try again.');
-            loader.style.display = 'none';
-            submitBtn.disabled = false;
-            submitBtn.classList.remove("btn-loading");
-            submitBtn.innerHTML = `Cartoonify! ✨`;
-        });
-    });
+  // File load
+  const loadFile = (file) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      beforeImg.src = e.target.result;
+      afterImg.removeAttribute('src');
+      downloadBtn.hidden = true;
+      showCanvas();
+      hasImage = true;
+      fitToStage();
+      setStatus('Image loaded');
+    };
+    reader.readAsDataURL(file);
+  };
 
-    // --- Drag & Drop ---
-    uploadArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        uploadArea.classList.add('dragover');
-    });
+  fileInput.addEventListener('change', function () {
+    const f = this.files?.[0];
+    if (f) loadFile(f);
+  });
 
-    uploadArea.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        uploadArea.classList.remove('dragover');
-    });
+  // BA slider drag
+  const onMove = (clientX) => {
+    const rect = stageInner.getBoundingClientRect();
+    const pct = ((clientX - rect.left) / rect.width) * 100;
+    setSplit(pct);
+  };
+  let dragging = false;
+  handle.addEventListener('mousedown', e => { dragging = true; e.preventDefault(); });
+  stageInner.addEventListener('mousedown', e => { dragging = true; onMove(e.clientX); });
+  window.addEventListener('mousemove', e => { if (dragging) onMove(e.clientX); });
+  window.addEventListener('mouseup', () => dragging = false);
+  handle.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') setSplit(split - 2);
+    if (e.key === 'ArrowRight') setSplit(split + 2);
+  });
 
-    uploadArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        uploadArea.classList.remove('dragover');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            fileInput.files = files;
-            fileInput.dispatchEvent(new Event('change'));
-        }
-    });
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.target.matches('input,select,textarea')) return;
+    if (e.key.toLowerCase() === 'o') { fileInput.click(); }
+    if (e.key.toLowerCase() === 'r') { uploadForm.requestSubmit(); }
+    if (e.key.toLowerCase() === 'f') { fitToStage(); }
+    if (e.key === '+' || e.key === '=') { setZoom(zoom * 1.1); }
+    if (e.key === '-' || e.key === '_') { setZoom(zoom / 1.1); }
+  });
+
+  // Submit to backend
+  uploadForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const srcFile = fileInput.files?.[0];
+    if (!srcFile) { setStatus('Select an image first'); return; }
+
+    stage.classList.add('has-image');
+    if (empty) empty.hidden = true;
+
+    loader.hidden = false; setStatus('Processing…');
+
+    const formData = new FormData(uploadForm);
+    formData.set('file', srcFile);
+    formData.set('blur_type', blurType.value);
+    formData.set('quantizer', quantizer.value);
+    formData.set('num_colors', numColors.value);
+    formData.set('line_strength', lineStrength.value);
+    formData.set('target_long_side', targetLongSide.value);
+    formData.set('upscale_small', upscaleSmall.checked ? 'true' : 'false');
+
+    fetch('/upload', { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        const url = data.cartoon_image_url + '?t=' + Date.now();
+        afterImg.onload = () => {
+          loader.hidden = true;
+          downloadBtn.href = url;
+          downloadBtn.hidden = false;
+          setStatus('Done');
+          setSplit(50);
+          fitToStage();
+        };
+        afterImg.src = url;
+      })
+      .catch(err => {
+        loader.hidden = true;
+        setStatus(err.message || 'Failed');
+      });
+  });
 });
-
